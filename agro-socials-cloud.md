@@ -20,6 +20,9 @@ V jednom běhu:
 > v Routine není nikdo, kdo by potvrdil. Místo toho se vizuály + texty zapíšou do run summary
 > (Krok 8) pro zpětnou kontrolu po doběhnutí.
 
+> **Notifikace jen při chybě.** Když běh proběhne v pořádku, **neposílej žádnou push notifikaci** —
+> run summary v transcriptu stačí. Notifikace se posílá **výhradně** při problému (viz Krok 9).
+
 ---
 
 ## Předpoklady prostředí (cloud Routine)
@@ -324,6 +327,46 @@ git push
 posted-log.json aktualizován a commitnut.
 [Pokud dnešní dávka měla méně než 2 použitelné články]: ⚠️ dobráno z backlogu — zkontroluj kvalitu obsahu.
 ```
+
+Run summary je **jen do transcriptu** — nikdy z něj nedělej push notifikaci. O notifikacích rozhoduje Krok 9.
+
+---
+
+## Krok 9 — Notifikace (POUZE při chybě)
+
+Routine běží, když u toho nikdo není. Notifikace vytrhne uživatele z toho, co zrovna dělá, takže se
+posílá jen tehdy, když s tím **musí něco udělat**.
+
+**NEPOSÍLEJ notifikaci, když běh dopadl dobře.** Konkrétně: naplánovaly se všechny posty,
+`posted-log.json` se commitnul, žádný krok neselhal → **žádná notifikace**, jen run summary
+z Kroku 8 do transcriptu. Tichý běh = úspěšný běh.
+
+**POŠLI notifikaci** (`PushNotification`, `status: "proactive"`) jen v těchto případech:
+
+| Situace | Co napsat |
+|---|---|
+| Chybí env proměnná (`AI_API_KEY`, `BUFFER_API_KEY`, Cloudinary) | která chybí + že běh vůbec nezačal |
+| Profifarmar API nevrátí články (HTTP chyba, prázdná odpověď) | status kód / co přišlo |
+| Canva krok selže (copy, upload assetu, editace, export) | u kterého článku a v jaké fázi |
+| Cloudinary upload selže i po 1 retry | který článek + chybová hláška |
+| Buffer odmítne post (jakýkoli z těch, co se měly naplánovat) | kolik z kolika prošlo + chyba u těch zbylých |
+| `posted-log.json` se nepodaří commitnout/pushnout | že hrozí duplicity v příštím běhu |
+| **Částečný úspěch** — naplánovalo se míň postů, než mělo | co prošlo, co ne, a co je potřeba dodělat ručně |
+| Nedostatek použitelných kandidátů (0 článků k postnutí) | že dnes nevyjde nic a proč |
+
+Formát zprávy — do `<routine_summary>` tagů, první věta je banner na telefon,
+zbytek je tělo e-mailu, ať se dá jednat bez otevírání session:
+
+```
+<routine_summary>
+Buffer odmítl 2 ze 6 postů (IG 17:00 a 20:00) — chyba "asset URL unreachable".
+Vizuály na Cloudinary jsou v pořádku, ostatní 4 posty naplánované.
+Zbylé dva je potřeba naplánovat ručně, nebo pustit routine znovu.
+</routine_summary>
+```
+
+> Notifikaci pošli **hned, jak na problém narazíš** — ne až na konci běhu. Zbytek dávky pak dokonči
+> normálně (co jde naplánovat, naplánuj) a v notifikaci uveď, co prošlo a co ne.
 
 ---
 
