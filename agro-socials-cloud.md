@@ -63,6 +63,11 @@ rovnou ho sluč (`merge_pull_request`), teprve pak pokračuj Krokem 1.
 > vybrat už dřív publikovaný (nebo vědomě přeskočený) článek. Automatické sloučení na začátku
 > běhu tohle riziko eliminuje bez nutnosti manuálního zásahu uživatele.
 
+> **Pojistka, ne běžná cesta.** Od té doby, co Krok 7 slučuje PR hned v tom běhu, který ho založil,
+> by tady normálně nemělo nic zbýt. Když přesto ano, znamená to, že minulému běhu sloučení selhalo
+> (konflikt, oprávnění, červená CI) — tak se na ten PR podívej, než ho slučíš. Konflikt Krok 0
+> neřeší: nech ho otevřený a napiš to do notifikace podle Kroku 9.
+
 ---
 
 ## Krok 1 — Najdi dnešní dávku a vyber z ní 2 nejatraktivnější články
@@ -300,12 +305,28 @@ mv /tmp/merged.json posted-log.json
 
 git add posted-log.json
 git commit -m "agro-socials-cloud: posted $(date -u +%Y-%m-%d)"
-git push
+git push -u origin "$(git branch --show-current)"
 ```
 
 > Pokud push selže s oprávněním na `claude/`-prefixed branch, viz sekci **Předpoklady prostředí**
 > výše — zapni "Allow unrestricted branch pushes" pro tohle repo v nastavení routine, jinak se
 > `posted-log.json` neuloží a příští běh bude riskovat duplicity.
+
+### Založ PR a rovnou ho sluč
+
+Po pushnutí založ pull request (`create_pull_request`, `claude/`-prefixed větev → `main`) a jakmile
+je `mergeable_state: clean`, **sluč ho hned v tomhle běhu** (`merge_pull_request`) — nenechávej ho
+otevřený na ruční sloučení ani na úklid v Kroku 0 příštího běhu.
+
+> **Proč hned:** dokud PR visí otevřený, `main` neobsahuje dnešní zápis do `posted-log.json`.
+> Každá další session nebo routine, která startuje z `main`, pak vidí zastaralý stav a spoléhá
+> na to, že Krok 0 příštího běhu úklid stihne. Když se mezitím `posted-log.json` na `main` změní
+> jinou cestou, PR dostane konflikt, Krok 0 ho neumí vyřešit (slučuje jen `clean` PR) a zastaralý
+> stav zůstane — s rizikem duplicitního postu. Okamžité sloučení tuhle závislost odstraní.
+
+> Sluč **jen PR, který jsi právě v tomhle běhu založil** a jen když je `clean` a bez červené CI.
+> Pokud sloučení selže (konflikt, chybějící oprávnění, nezelená CI), nech PR otevřený, pokračuj
+> Krokem 8 a pošli notifikaci podle Kroku 9 — otevřený PR pak dojede Krok 0 příštího běhu.
 
 ---
 
